@@ -1,5 +1,6 @@
 ---
 title: "Lab 10 - Grading the professor, Pt. 1"
+author: "Nam Pham"
 subtitle: "Modeling with a single predictor"
 output: 
   tufte::tufte_html:
@@ -15,7 +16,7 @@ link-citations: true
 ---
 
 ```{r include=FALSE}
-knitr::opts_chunk$set(eval = FALSE)
+knitr::opts_chunk$set(eval = TRUE)
 ```
 
 Many college courses conclude by giving students the opportunity to evaluate the course and the instructor anonymously.
@@ -58,6 +59,7 @@ You can load them by running the following in your Console:
 library(tidyverse) 
 library(tidymodels)
 library(openintro)
+glimpse(evals)
 ```
 
 ## Data
@@ -78,14 +80,64 @@ You can also find this information [here](https://www.openintro.org/data/index.p
     Why, or why not?
     Include any summary statistics and visualizations you use in your response.
 
+```{r score-dist}
+evals %>%
+  ggplot(aes(x = score)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(
+    title = "Distribution of course evaluation scores",
+    x = "Score",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+evals %>%
+  summarise(
+    mean_score = mean(score),
+    median_score = median(score),
+    sd_score = sd(score),
+    min_score = min(score),
+    max_score = max(score)
+  )
+```
+
+  ANSWER: When I plotted the scores, most of them were packed up near 4 and higher, which means the distribution is kinda left-skewed. Basically, students give good ratings most of the time and only a few classes get low scores. The summary stats match that too — the average score is about 4.17 and the median is 4.3, so people are definitely rating things pretty nicely. Honestly, this is exactly what I expected because students usually don’t tank a class unless it was really bad. Most people just give solid scores and move on.
+
 2.  Visualize and describe the relationship between `score` and `bty_avg`.
 
+```{r score-bty-scatter}
+evals %>%
+  ggplot(aes(x = bty_avg, y = score)) +
+  geom_point(alpha = 0.6) +
+  labs(
+    title = "Course score vs. average beauty rating",
+    x = "Average beauty rating (bty_avg)",
+    y = "Average course evaluation score"
+  ) +
+  theme_minimal()
+```
 ```{marginfigure}
 **Hint:** See the help page for the function at http://ggplot2.tidyverse.org/reference/index.html.
 ```
 
+  ANSWER: When I looked at the scatterplot, there’s definitely a small upward trend — professors who got higher beauty ratings usually scored a bit higher in their evaluations. But the points are pretty spread out, so it’s not like beauty actually determines the score. It just seems like being more attractive helps a little, but it’s clearly not a huge effect.
+
 3.  Recreate the scatterplot from Exercise 2, but this time use\
     `geom_jitter()`? What does "jitter" mean? What was misleading about the initial scatterplot?
+
+```{r score-bty-jitter}
+evals %>%
+  ggplot(aes(x = bty_avg, y = score)) +
+  geom_jitter(width = 0.1, height = 0.05, alpha = 0.6) +
+  labs(
+    title = "Course score vs. average beauty rating (with jitter)",
+    x = "Average beauty rating (bty_avg)",
+    y = "Average course evaluation score"
+  ) +
+  theme_minimal()
+```
+
+  ANSWER: Jitter basically shakes the points a tiny bit so they don’t sit right on top of each other. In the original scatterplot, a bunch of points were stacked, so it looked like there were fewer data points than there really were. Once you add jitter, you can actually see that lots of courses have the same bty_avg and score, which the first plot totally hid.
 
 *If you haven't done so recently, knit, commit, and push your changes to GitHub with an appropriate commit message. Make sure to commit and push all changed files so that your Git pane is cleared up afterwards.*
 
@@ -99,40 +151,116 @@ Linear model is in the form $\hat{y} = b_0 + b_1 x$.
     Fit a linear model called `score_bty_fit` to predict average professor evaluation `score` by average beauty rating (`bty_avg`).
     Based on the regression output, write the linear model.
 
+```{r score-bty-fit}
+score_bty_fit <- lm(score ~ bty_avg, data = evals)
+summary(score_bty_fit)
+```
+
+  ANSWER: Based on the regression, the fitted model is:
+   
+   Score = 3.88034 + 0.06664 * bty_avg
+
+So basically, the intercept (3.88) is the predicted course score for a professor with a beauty rating of 0 — which isn’t super realistic, but that’s just how linear models work. The slope (0.0666) means that for every 1-point increase in the beauty rating, the expected evaluation score goes up by about 0.07 points. It’s a pretty small bump, but it does show a statistically significant positive relationship between beauty and course ratings.
+
 5.  Recreate the scatterplot from Exercise 2, and add the regression line to this plot in orange color, with shading for the uncertainty of the line turned off.
 
+```{r score-bty-with-line}
+evals %>%
+  ggplot(aes(x = bty_avg, y = score)) +
+  geom_jitter(width = 0.1, height = 0.05, alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(
+    title = "Course score vs. beauty with regression line",
+    x = "Average beauty rating (bty_avg)",
+    y = "Average course evaluation score"
+  ) +
+  theme_minimal()
+```
 6.  Interpret the slope of the linear model in context of the data.
 
+ ANSWER: The slope is about 0.0666, which means that for every 1-point increase in a professor’s beauty rating, their expected course score goes up by about 0.07. So being rated more attractive does help, but only a little.
+ 
 7.  Interpret the intercept of the linear model in context of the data.
     Comment on whether or not the intercept makes sense in this context.
 
+  ANSWER: The intercept is 3.88, which represents the predicted score for a professor with a beauty rating of 0. That situation doesn’t really happen in the data, so the number itself isn’t that meaningful — it’s just where the regression line starts.
+
 8.  Determine the $R^2$ of the model and interpret it in context of the data.
 
+  ANSWER: The R² is about 0.035, meaning beauty only explains around 3.5% of the variation in course scores. So yes, beauty matters a bit, but most of the differences in evaluations are caused by other things.
+  
 *If you haven't done so recently, knit, commit, and push your changes to GitHub with an appropriate commit message. Make sure to commit and push all changed files so that your Git pane is cleared up afterwards.*
 
 ## Linear regression with a categorical predictor
 
 9.  Fit a new linear model called `score_gender_fit` to predict average professor evaluation `score` based on `gender` of the professor.
     Based on the regression output, write the linear model and interpret the slope and intercept in context of the data.
+    
+```{r score-gender-fit}
+evals %>%
+  count(gender)
 
+score_gender_fit <- lm(score ~ gender, data = evals)
+summary(score_gender_fit)
+```
+
+  ANSWER:   
+            score = 4.093+0.142⋅(male)
+      
 10. What is the equation of the line corresponding to male professors?
     What is it for female professors?
-
+  
+  ANSWER: 
+        Female professors: 
+                     score = 4.093
+        Male professors:
+            score = 4.093 + 0.142 = 4.235
+  
 11. Fit a new linear model called `score_rank_fit` to predict average professor evaluation `score` based on `rank` of the professor.
     Based on the regression output, write the linear model and interpret the slopes and intercept in context of the data.
 
+
+```{r score-rank-fit}
+evals %>%
+  count(rank)
+
+score_rank_fit <- lm(score ~ rank, data = evals)
+summary(score_rank_fit)
+```
+
+  ANSWER: 
+  score = 4.284 - 0.130*(tenure track)-0.145(tenured)
+  
+  
 12. Create a new variable called `rank_relevel` where `"tenure track"` is the baseline level.
+
+```{r rank-relevel-1}
+evals <- evals %>%
+  mutate(rank_relevel = forcats::fct_relevel(rank, "tenure track"))
+
+evals %>% count(rank_relevel)
+```
 
 13. Fit a new linear model called `score_rank_relevel_fit` to predict average professor evaluation `score` based on `rank_relevel` of the professor.
     This is the new (releveled) variable you created in Exercise 12.
     Based on the regression output, write the linear model and interpret the slopes and intercept in context of the data.
     Also determine and interpret the $R^2$ of the model.
 
+```{r rank-relevel-2}
+evals <- evals %>%
+  mutate(rank_relevel = forcats::fct_relevel(rank, "tenure track"))
+
+evals %>% count(rank_relevel)
+```
+
 14. Create another new variable called `tenure_eligible` that labels `"teaching"` faculty as `"no"` and labels `"tenure track"` and `"tenured"` faculty as `"yes"`.
+
+
 
 15. Fit a new linear model called `score_tenure_eligible_fit` to predict average professor evaluation `score` based on `tenure_eligible`ness of the professor.
     This is the new (regrouped) variable you created in the previous exercise.
     Based on the regression output, write the linear model and interpret the slopes and intercept in context of the data.
     Also determine and interpret the $R^2$ of the model.
+
 
 Knit, *commit, and push your changes to GitHub with an appropriate commit message. Make sure to commit and push all changed files so that your Git pane is cleared up afterwards and review the md document on GitHub to make sure you're happy with the final state of your work.*
